@@ -20,12 +20,22 @@ class Demuxer {
         logger.log('demuxing in webworker');
         let w;
         try {
-          let work = require('webworkify');
-          w = this.w = work(DemuxerWorker);
-          this.onwmsg = this.onWorkerMessage.bind(this);
-          w.addEventListener('message', this.onwmsg);
-          w.onerror = function(event) { hls.trigger(Event.ERROR, {type: ErrorTypes.OTHER_ERROR, details: ErrorDetails.INTERNAL_EXCEPTION, fatal: true, event : 'demuxerWorker', err : { message : event.message + ' (' + event.filename + ':' + event.lineno + ')' }});};
-          w.postMessage({cmd: 'init', typeSupported : typeSupported, id : id, config: JSON.stringify(hls.config)});
+          if (!this.w) {
+            let work = require('webworkify');
+            w = this.w = work(DemuxerWorker);
+            this.onwmsg = this.onWorkerMessage.bind(this);
+            w.addEventListener('message', this.onwmsg);
+            w.onerror = function (event) {
+              hls.trigger(Event.ERROR, {
+                type: ErrorTypes.OTHER_ERROR,
+                details: ErrorDetails.INTERNAL_EXCEPTION,
+                fatal: true,
+                event: 'demuxerWorker',
+                err: {message: event.message + ' (' + event.filename + ':' + event.lineno + ')'}
+              });
+            };
+            w.postMessage({cmd: 'init', typeSupported: typeSupported, id: id, config: JSON.stringify(hls.config)});
+          }
         } catch(err) {
           logger.error('error while initializing DemuxerWorker, fallback on DemuxerInline');
           if (w) {
@@ -41,8 +51,9 @@ class Demuxer {
   }
 
   destroy() {
+    let hls = this.hls;
     let w = this.w;
-    if (w) {
+    if (!hls.config.reuseWorker && w) {
       w.removeEventListener('message', this.onwmsg);
       w.terminate();
       this.w = null;

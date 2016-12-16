@@ -1829,6 +1829,7 @@ var BufferController = function (_EventHandler) {
     key: 'onMediaDetaching',
     value: function onMediaDetaching() {
       _logger.logger.log('media source detaching');
+      var hls = this.hls;
       var ms = this.mediaSource;
       if (ms) {
         if (ms.readyState === 'open') {
@@ -1850,7 +1851,11 @@ var BufferController = function (_EventHandler) {
         // suggested in https://github.com/w3c/media-source/issues/53.
         if (this.media) {
           URL.revokeObjectURL(this.media.src);
-          this.media.removeAttribute('src');
+          if (hls.config.destroyedMediaSource) {
+            this.media.src = hls.config.destroyedMediaSource;
+          } else {
+            this.media.removeAttribute('src');
+          }
           this.media.load();
         }
 
@@ -5804,14 +5809,22 @@ var Demuxer = function () {
       _logger.logger.log('demuxing in webworker');
       var w = void 0;
       try {
-        var work = _dereq_(3);
-        w = this.w = work(_demuxerWorker2.default);
-        this.onwmsg = this.onWorkerMessage.bind(this);
-        w.addEventListener('message', this.onwmsg);
-        w.onerror = function (event) {
-          hls.trigger(_events2.default.ERROR, { type: _errors.ErrorTypes.OTHER_ERROR, details: _errors.ErrorDetails.INTERNAL_EXCEPTION, fatal: true, event: 'demuxerWorker', err: { message: event.message + ' (' + event.filename + ':' + event.lineno + ')' } });
-        };
-        w.postMessage({ cmd: 'init', typeSupported: typeSupported, id: id, config: JSON.stringify(hls.config) });
+        if (!this.w) {
+          var work = _dereq_(3);
+          w = this.w = work(_demuxerWorker2.default);
+          this.onwmsg = this.onWorkerMessage.bind(this);
+          w.addEventListener('message', this.onwmsg);
+          w.onerror = function (event) {
+            hls.trigger(_events2.default.ERROR, {
+              type: _errors.ErrorTypes.OTHER_ERROR,
+              details: _errors.ErrorDetails.INTERNAL_EXCEPTION,
+              fatal: true,
+              event: 'demuxerWorker',
+              err: { message: event.message + ' (' + event.filename + ':' + event.lineno + ')' }
+            });
+          };
+          w.postMessage({ cmd: 'init', typeSupported: typeSupported, id: id, config: JSON.stringify(hls.config) });
+        }
       } catch (err) {
         _logger.logger.error('error while initializing DemuxerWorker, fallback on DemuxerInline');
         if (w) {
@@ -5829,8 +5842,9 @@ var Demuxer = function () {
   _createClass(Demuxer, [{
     key: 'destroy',
     value: function destroy() {
+      var hls = this.hls;
       var w = this.w;
-      if (w) {
+      if (!hls.config.reuseWorker && w) {
         w.removeEventListener('message', this.onwmsg);
         w.terminate();
         this.w = null;
@@ -8270,6 +8284,7 @@ var Hls = function () {
           liveMaxLatencyDuration: undefined,
           maxMaxBufferLength: 600,
           enableWorker: true,
+          reuseWorker: true,
           enableSoftwareAES: true,
           enableLazyURLResolve: false,
           manifestLoadingTimeOut: 10000,
@@ -8317,7 +8332,8 @@ var Hls = function () {
           abrBandWidthUpFactor: 0.7,
           maxStarvationDelay: 4,
           maxLoadingDelay: 4,
-          minAutoBitrate: 0
+          minAutoBitrate: 0,
+          destroyedMediaSource: ''
         };
       }
       return Hls.defaultConfig;

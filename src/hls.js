@@ -72,6 +72,7 @@ class Hls {
           liveMaxLatencyDuration: undefined,
           maxMaxBufferLength: 600,
           enableWorker: true,
+          reuseWorker: true,
           enableSoftwareAES: true,
           enableLazyURLResolve : false,
           manifestLoadingTimeOut: 10000,
@@ -119,7 +120,8 @@ class Hls {
           abrBandWidthUpFactor : 0.7,
           maxStarvationDelay : 4,
           maxLoadingDelay : 4,
-          minAutoBitrate: 0
+          minAutoBitrate: 0,
+          destroyedMediaSource: ''
         };
     }
     return Hls.defaultConfig;

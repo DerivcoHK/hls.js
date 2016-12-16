@@ -110,6 +110,7 @@ class BufferController extends EventHandler {
 
   onMediaDetaching() {
     logger.log('media source detaching');
+    let hls = this.hls;
     var ms = this.mediaSource;
     if (ms) {
       if (ms.readyState === 'open') {
@@ -131,7 +132,12 @@ class BufferController extends EventHandler {
       // suggested in https://github.com/w3c/media-source/issues/53.
       if (this.media) {
         URL.revokeObjectURL(this.media.src);
-        this.media.removeAttribute('src');
+        if (hls.config.destroyedMediaSource) {
+          this.media.src = hls.config.destroyedMediaSource;
+        }
+        else {
+          this.media.removeAttribute('src');
+        }
         this.media.load();
       }
 
