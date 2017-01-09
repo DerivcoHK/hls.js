@@ -80,7 +80,6 @@ header {
       <label class="innerControls"><input id="enableStreaming" type=checkbox checked/> Enable Streaming</label>
       <label class="innerControls"><input id="autoRecoverError" type=checkbox checked/> Auto-Recover Media Error</label>
       <label class="innerControls"><input id="enableWorker" type=checkbox checked/> Enable Worker</label>
-      <label class="innerControls"><input id="enableLazyURLResolve" type=checkbox checked/> Lazy Frag URL Resolve</label>
       <label class="innerControls">Level Capping <input id="levelCapping" type=number/></label>
       <label class="innerControls">default Audio Codec <input id="defaultAudioCodec"/></label>
       <div id="StreamPermalink" class="innerControls"></div>
@@ -227,13 +226,11 @@ $(document).ready(function() {
    $('#enableStreaming').click(function()      { enableStreaming = this.checked; loadStream($('#streamURL').val()); });
    $('#autoRecoverError').click(function()  { autoRecoverError = this.checked; updatePermalink();});
    $('#enableWorker').click(function()  { enableWorker = this.checked; updatePermalink();});
-   $('#enableLazyURLResolve').click(function()  { enableLazyURLResolve = this.checked; updatePermalink();});
    $('#levelCapping').change(function()  { levelCapping = this.value; updatePermalink();});
    $('#defaultAudioCodec').change(function()  { defaultAudioCodec = this.value; updatePermalink();});
    $('#enableStreaming').prop( "checked", enableStreaming );
    $('#autoRecoverError').prop( "checked", autoRecoverError );
    $('#enableWorker').prop( "checked", enableWorker );
-   $('#enableLazyURLResolve').prop( "checked", enableLazyURLResolve );
    $('#levelCapping').val(levelCapping);
    $('#defaultAudioCodec').val(defaultAudioCodec || "undefined");
 
@@ -247,7 +244,6 @@ $(document).ready(function() {
       enableStreaming = JSON.parse(getURLParam('enableStreaming',true))
       autoRecoverError = JSON.parse(getURLParam('autoRecoverError',true)),
       enableWorker = JSON.parse(getURLParam('enableWorker',true)),
-      enableLazyURLResolve = JSON.parse(getURLParam('enableLazyURLResolve',true)),
       levelCapping = JSON.parse(getURLParam('levelCapping',-1)),
       defaultAudioCodec = getURLParam('defaultAudioCodec',undefined);
   var video = $('#video')[0];
@@ -278,7 +274,7 @@ $(document).ready(function() {
       $("#HlsStatus").text('loading ' + url);
        events = { url : url, t0 : performance.now(), load : [], buffer : [], video : [], level : [], bitrate : []};
        recoverDecodingErrorDate = recoverSwapAudioCodecDate = null;
-       hls = new Hls({debug:true, enableWorker : enableWorker, enableLazyURLResolve : enableLazyURLResolve, defaultAudioCodec : defaultAudioCodec});
+       hls = new Hls({debug:true, enableWorker : enableWorker, defaultAudioCodec : defaultAudioCodec});
        $("#HlsStatus").text('loading manifest and attaching video element...');
        hls.loadSource(url);
        hls.autoLevelCapping = levelCapping;
@@ -321,15 +317,27 @@ $(document).ready(function() {
        });
        hls.on(Hls.Events.MANIFEST_PARSED,function(event,data) {
          $("#HlsStatus").text("manifest successfully loaded," + hls.levels.length + " levels found");
-         stats = {levelNb: data.levels.length};
+         stats = {levelNb: data.levels.length, levelParsed : 0};
          updateLevelInfo();
        });
        hls.on(Hls.Events.AUDIO_TRACKS_UPDATED,function(event,data) {
           $("#HlsStatus").text(data.audioTracks.length + " audio tracks found");
           updateAudioTrackInfo();
        });
-       hls.on(Hls.Events.AUDIO_TRACK_SWITCH,function(event,data) {
+       hls.on(Hls.Events.AUDIO_TRACK_SWITCHING,function(event,data) {
           updateAudioTrackInfo();
+        var event = {time : performance.now() - events.t0, type : 'audio switching', name : '@' + data.id };
+        events.video.push(event);
+        lastAudioTrackSwitchingIdx = events.video.length-1;
+       });
+       hls.on(Hls.Events.AUDIO_TRACK_SWITCHED,function(event,data) {
+          updateAudioTrackInfo();
+        var event = {time : performance.now() - events.t0, type : 'audio switched', name : '@' + data.id };
+        if (lastAudioTrackSwitchingIdx !== undefined) {
+          events.video[lastAudioTrackSwitchingIdx].duration = event.time - events.video[lastAudioTrackSwitchingIdx].time;
+          lastAudioTrackSwitchingIdx = undefined;
+        }
+        events.video.push(event);
        });
        hls.on(Hls.Events.LEVEL_LOADED,function(event,data) {
           events.isLive = data.details.live;
@@ -344,6 +352,15 @@ $(document).ready(function() {
             parsing : data.stats.tparsed - data.stats.tload,
             duration : data.stats.tload - data.stats.tfirst
           };
+          const parsingDuration = data.stats.tparsed - data.stats.tload;
+          if (stats.levelParsed) {
+            this.sumLevelParsingMs += parsingDuration;
+          } else {
+            this.sumLevelParsingMs = parsingDuration;
+          }
+          stats.levelParsed++;
+          stats.levelParsingUs = Math.round(1000*this.sumLevelParsingMs / stats.levelParsed);
+          console.log("parsing level duration :" + stats.levelParsingUs + "us,count:" + stats.levelParsed);
           events.load.push(event);
           refreshCanvas();
        });
@@ -626,7 +643,7 @@ $(document).ready(function() {
   }
 
 
-var lastSeekingIdx, lastStartPosition,lastDuration;
+var lastSeekingIdx, lastStartPosition,lastDuration, lastAudioTrackSwitchingIdx;
   function handleVideoEvent(evt) {
     var data = '';
     switch(evt.type) {
@@ -1061,7 +1078,6 @@ function updateAudioTrackInfo() {
                     '&enableStreaming=' + enableStreaming +
                     '&autoRecoverError=' + autoRecoverError +
                     '&enableWorker=' + enableWorker +
-                    '&enableLazyURLResolve=' + enableLazyURLResolve +
                     '&levelCapping=' + levelCapping +
                     '&defaultAudioCodec=' + defaultAudioCodec;
       var description = 'permalink: ' + "<a href=\"" + hlsLink + "\">" + hlsLink + "</a>";

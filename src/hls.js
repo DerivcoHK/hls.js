@@ -74,7 +74,6 @@ class Hls {
           enableWorker: true,
           reuseWorker: true,
           enableSoftwareAES: true,
-          enableLazyURLResolve : false,
           manifestLoadingTimeOut: 10000,
           manifestLoadingMaxRetry: 1,
           manifestLoadingRetryDelay: 1000,
