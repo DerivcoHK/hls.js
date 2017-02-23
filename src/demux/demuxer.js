@@ -69,7 +69,7 @@ class Demuxer {
 
   destroy() {
     let w = this.w;
-    const hls = hls;
+    const hls = this.hls;
     if (!hls.config.reuseWorker && w) {
       w.removeEventListener('message', this.onwmsg);
       w.terminate();

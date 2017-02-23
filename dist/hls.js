@@ -7029,7 +7029,7 @@ var Demuxer = function () {
     key: 'destroy',
     value: function destroy() {
       var w = this.w;
-      var hls = hls;
+      var hls = this.hls;
       if (!hls.config.reuseWorker && w) {
         w.removeEventListener('message', this.onwmsg);
         w.terminate();
