@@ -78,9 +78,10 @@ design idea is pretty simple :
         - trigger BUFFER_APPENDING on FRAG_PARSING_DATA
         - once FRAG_PARSED is received an all segments have been appended (BUFFER_APPENDED) then buffer controller will recheck whether it needs to buffer more data.
       - **monitor current playback quality level** (buffer controller maintains a map between media position and quality level)
-      - **monitor playback progress** : if playhead is not moving anymore although it should (video metadata is known and video is not ended, nor paused, nor in seeking state) and if we have less than 400ms buffered upfront, and if there is a new buffer range available upfront, less than config.maxSeekHole from currentTime, then hls.js will **jump over the buffer hole** and seek to the beginning of this new buffered range, to "unstuck" the playback.
-      400 ms is a "magic number" that has been set to overcome browsers not always stopping playback at the exact end of a buffered range.
+      - **monitor playback progress** : if playhead is not moving for more than `config.lowBufferWatchdogPeriod` although it should (video metadata is known and video is not ended, nor paused, nor in seeking state) and if we have less than 500ms buffered upfront, and if there is a new buffer range available upfront, less than `config.maxSeekHole` from currentTime, then hls.js will **jump over the buffer hole** and seek to the beginning of this new buffered range, to "unstuck" the playback.
+      500 ms is a "magic number" that has been set to overcome browsers not always stopping playback at the exact end of a buffered range.
       these holes in media buffered are often encountered on stream discontinuity or on quality level switch. holes could be "large" especially if fragments are not starting with a keyframe.
+       if playhead is stuck for more than `config.highBufferWatchdogPeriod` second in a buffered area, hls.js will nudge currentTime until playback recovers (it will retry every seconds, and report a fatal error after config.maxNudgeRetry retries)
     - convert non-fatal `FRAG_LOAD_ERROR`/`FRAG_LOAD_TIMEOUT`/`KEY_LOAD_ERROR`/`KEY_LOAD_TIMEOUT` error into fatal error when media position is not buffered and max load retry has been reached 
     - stream controller actions are scheduled by a tick timer (invoked every 100ms) and actions are controlled by a state machine.
   - [src/controller/timeline-controller.js][]
@@ -171,52 +172,52 @@ design idea is pretty simple :
     - timeout: if load exceeds max allowed duration, a timeout callback will be triggered. it is up to the callback to decides whether the connection should be cancelled or not.
 
 
-[src/errors.js]: src/errors.js
-[src/event-handler.js]: src/event-handler.js
-[src/events.js]: src/events.js
-[src/hls.js]: src/hls.js
-[src/index.js]: src/index.js
-[src/controller/abr-controller.js]: src/controller/abr-controller.js
-[src/controller/audio-stream-controller.js]: src/controller/audio-stream-controller.js
-[src/controller/audio-track-controller.js]: src/controller/audio-track-controller.js
-[src/controller/buffer-controller.js]: src/controller/buffer-controller.js
-[src/controller/cap-level-controller.js]: src/controller/cap-level-controller.js
-[src/controller/ewma-bandwidth-estimator.js]: src/controller/ewma-bandwidth-estimator.js
-[src/controller/fps-controller.js]: src/controller/fps-controller.js
-[src/controller/level-controller.js]: src/controller/level-controller.js
-[src/controller/stream-controller.js]: src/controller/stream-controller.js
-[src/controller/timeline-controller.js]: src/controller/timeline-controller.js
-[src/crypt/aes.js]: src/crypt/aes.js
-[src/crypt/aes128-decrypter.js]: src/crypt/aes128-decrypter.js
-[src/crypt/decrypter.js]: src/crypt/decrypter.js
-[src/demux/aacdemuxer.js]: src/demux/aacdemuxer.js
-[src/demux/adts.js]: src/demux/adts.js
-[src/demux/demuxer.js]: src/demux/demuxer.js
-[src/demux/demuxer-inline.js]: src/demux/demuxer-inline.js
-[src/demux/demuxer-worker.js]: src/demux/demuxer-worker.js
-[src/demux/exp-golomb.js]: src/demux/exp-golomb.js
-[src/demux/id3.js]: src/demux/id3.js
-[src/demux/tsdemuxer.js]: src/demux/tsdemuxer.js
-[src/helper/aac.js]: src/helper/aac.js
-[src/helper/buffer-helper.js]: src/helper/buffer-helper.js
-[src/helper/level-helper.js]: src/helper/level-helper.js
-[src/loader/fragment-loader.js]: src/loader/fragment-loader.js
-[src/loader/key-loader.js]: src/loader/key-loader.js
-[src/loader/playlist-loader.js]: src/loader/playlist-loader.js
-[src/remux/dummy-remuxer.js]: src/remux/dummy-remuxer.js
-[src/remux/mp4-generator.js]: src/remux/mp4-generator.js
-[src/remux/passthrough-remuxer.js]: src/remux/passthrough-remuxer.js
-[src/remux/mp4-remuxer.js]: src/remux/mp4-remuxer.js
-[src/utils/attr-list.js]: src/utils/attr-list.js
-[src/utils/binary-search.js]: src/utils/binary-search.js
-[src/utils/cea-608-parser.js]: src/utils/cea-608-parser.js
-[src/utils/cues.js]: src/utils/cues.js
-[src/utils/ewma.js]: src/utils/ewma.js
-[src/utils/hex.js]: src/utils/hex.js
-[src/utils/logger.js]: src/utils/logger.js
-[src/utils/polyfill.js]: src/utils/polyfill.js
-[src/utils/url.js]: src/utils/url.js
-[src/utils/xhr-loader.js]: src/utils/xhr-loader.js
+[src/errors.js]: ../src/errors.js
+[src/event-handler.js]: ../src/event-handler.js
+[src/events.js]: ../src/events.js
+[src/hls.js]: ../src/hls.js
+[src/index.js]: ../src/index.js
+[src/controller/abr-controller.js]: ../src/controller/abr-controller.js
+[src/controller/audio-stream-controller.js]: ../src/controller/audio-stream-controller.js
+[src/controller/audio-track-controller.js]: ../src/controller/audio-track-controller.js
+[src/controller/buffer-controller.js]: ../src/controller/buffer-controller.js
+[src/controller/cap-level-controller.js]: ../src/controller/cap-level-controller.js
+[src/controller/ewma-bandwidth-estimator.js]: ../src/controller/ewma-bandwidth-estimator.js
+[src/controller/fps-controller.js]: ../src/controller/fps-controller.js
+[src/controller/level-controller.js]: ../src/controller/level-controller.js
+[src/controller/stream-controller.js]: ../src/controller/stream-controller.js
+[src/controller/timeline-controller.js]: ../src/controller/timeline-controller.js
+[src/crypt/aes.js]: ../src/crypt/aes.js
+[src/crypt/aes128-decrypter.js]: ../src/crypt/aes128-decrypter.js
+[src/crypt/decrypter.js]: ../src/crypt/decrypter.js
+[src/demux/aacdemuxer.js]: ../src/demux/aacdemuxer.js
+[src/demux/adts.js]: ../src/demux/adts.js
+[src/demux/demuxer.js]: ../src/demux/demuxer.js
+[src/demux/demuxer-inline.js]: ../src/demux/demuxer-inline.js
+[src/demux/demuxer-worker.js]: ../src/demux/demuxer-worker.js
+[src/demux/exp-golomb.js]: ../src/demux/exp-golomb.js
+[src/demux/id3.js]: ../src/demux/id3.js
+[src/demux/tsdemuxer.js]: ../src/demux/tsdemuxer.js
+[src/helper/aac.js]: ../src/helper/aac.js
+[src/helper/buffer-helper.js]: ../src/helper/buffer-helper.js
+[src/helper/level-helper.js]: ../src/helper/level-helper.js
+[src/loader/fragment-loader.js]: ../src/loader/fragment-loader.js
+[src/loader/key-loader.js]: ../src/loader/key-loader.js
+[src/loader/playlist-loader.js]: ../src/loader/playlist-loader.js
+[src/remux/dummy-remuxer.js]: ../src/remux/dummy-remuxer.js
+[src/remux/mp4-generator.js]: ../src/remux/mp4-generator.js
+[src/remux/passthrough-remuxer.js]: ../src/remux/passthrough-remuxer.js
+[src/remux/mp4-remuxer.js]: ../src/remux/mp4-remuxer.js
+[src/utils/attr-list.js]: ../src/utils/attr-list.js
+[src/utils/binary-search.js]: ../src/utils/binary-search.js
+[src/utils/cea-608-parser.js]: ../src/utils/cea-608-parser.js
+[src/utils/cues.js]: ../src/utils/cues.js
+[src/utils/ewma.js]: ../src/utils/ewma.js
+[src/utils/hex.js]: ../src/utils/hex.js
+[src/utils/logger.js]: ../src/utils/logger.js
+[src/utils/polyfill.js]: ../src/utils/polyfill.js
+[src/utils/url.js]: ../src/utils/url.js
+[src/utils/xhr-loader.js]: ../src/utils/xhr-loader.js
 
 
 ## Error detection and Handling
@@ -253,4 +254,5 @@ design idea is pretty simple :
   - ```BUFFER_STALLED_ERROR``` is raised by [src/controller/stream-controller.js][] if playback is stalling because of buffer underrun
   - ```BUFFER_FULL_ERROR``` is raised by [src/controller/buffer-controller.js][] if sourcebuffer is full
   - ```BUFFER_SEEK_OVER_HOLE``` is raised by [src/controller/stream-controller.js][] when hls.js seeks over a buffer hole after playback stalls
+  - ```BUFFER_NUDGE_ON_STALL``` is raised by [src/controller/stream-controller.js][] when hls.js nudge currentTime (when playback is stuck for more than 1s in a buffered area)
   - ```INTERNAL_EXCEPTION``` is raised by [src/event-handler.js][] when a runtime exception is triggered by an internal Hls event handler. this error is non-fatal.

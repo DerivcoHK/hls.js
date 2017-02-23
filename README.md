@@ -7,8 +7,9 @@ Join the discussion: [![Slack Status](https://hlsjs.herokuapp.com/badge.svg)](ht
 hls.js is a JavaScript library which implements an [HTTP Live Streaming] client.
 It relies on [HTML5 video][] and [MediaSource Extensions][] for playback.
 
-It works by transmuxing MPEG-2 Transport Stream into ISO BMFF (MP4) fragments.
+It works by transmuxing MPEG-2 Transport Stream and AAC/MP3 streams into ISO BMFF (MP4) fragments.
 This transmuxing could be performed asynchronously using [Web Worker] if available in the browser.
+hls.js also supports HLS + fmp4, as announced during [WWDC2016](https://developer.apple.com/videos/play/wwdc2016/504/)
 
 hls.js does not need any player, it works directly on top of a standard HTML```<video>```element.
 
@@ -68,7 +69,7 @@ hls.js is (being) integrated in the following players:
  - [Akamai Adaptive Media Player (AMP)] (https://www.akamai.com/us/en/solutions/products/media-delivery/adaptive-media-player.jsp)
  - [Clappr] (https://github.com/clappr/clappr)
  - [Flowplayer] (https://www.flowplayer.org)  through [flowplayer-hlsjs] (https://github.com/flowplayer/flowplayer-hlsjs)
- - [MediaElement.js] (http://mediaelementjs.com/) integrated in [3.x-dev] (https://github.com/johndyer/mediaelement/tree/3.x-dev)
+ - [MediaElement.js] (http://www.mediaelementjs.com)
  - [Videojs] (http://videojs.com) through [Videojs-hlsjs] (https://github.com/benjipott/videojs-hlsjs)
  - [Videojs] (http://videojs.com) through [videojs-hls.js] (https://github.com/streamroot/videojs-hls.js). hls.js is integrated as a SourceHandler -- new feature in Video.js 5.
  - [Videojs] (http://videojs.com) through [videojs-contrib-hls.js](https://github.com/Peer5/videojs-contrib-hls.js). Production ready plug-in with full fallback compatibility built-in.
@@ -129,12 +130,19 @@ All HLS resources must be delivered with [CORS headers](https://developer.mozill
 
   - VoD & Live playlists
     - DVR support on Live playlists
+  - fragmented MP4 container (beta)
   - MPEG-2 TS container
     - ITU-T Rec. H.264 and ISO/IEC 14496-10 Elementary Stream
     - ISO/IEC 13818-7 ADTS AAC Elementary Stream
     - ISO/IEC 11172-3 / ISO/IEC 13818-3 (MPEG-1/2 Audio Layer III) Elementary Stream
     - Packetized metadata (ID3) Elementary Stream
   - AAC container (audio only streams)
+  - MPEG Audio container (MPEG-1/2 Audio Layer III audio only streams)
+  - Timed Metadata for HTTP Live Streaming (in ID3 format, carried in MPEG-2 TS)
+  - AES-128 decryption (AES-128 mode)
+  - CEA-608/708 captionss
+  - WebVTT subtitles
+  - Alternate Audio Track Rendition (Master Playlist with alternative Audio) for VoD and Live playlists    
   - Adaptive streaming
     - Manual & Auto Quality Switching
       - 3 Quality Switching modes are available (controllable through API means)
@@ -151,16 +159,9 @@ All HLS resources must be delivered with [CORS headers](https://developer.mozill
     - Retry mechanism embedded in the library
     - Recovery actions could be triggered fix fatal media or network errors
   - [Redundant/Failover Playlists](https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/StreamingMediaGuide/UsingHTTPLiveStreaming/UsingHTTPLiveStreaming.html#//apple_ref/doc/uid/TP40008332-CH102-SW22)
-  - Timed Metadata for HTTP Live Streaming (in ID3 format, carried in MPEG-2 TS)
-  - AES-128 decryption (AES-128 mode)
-  - CEA-708 captions
-  - Alternate Audio Track Rendition (Master Playlist with alternative Audio) for VoD and Live playlists  
 
 ## Not Supported (Yet)
-
-  - WebVTT container
   - MP3 Elementary Stream in Edge for Windows 10+
-  - MP3 container
 
 ### Supported M3U8 tags
 
@@ -173,6 +174,7 @@ All HLS resources must be delivered with [CORS headers](https://developer.mozill
   - `#EXT-X-DISCONTINUITY`
   - `#EXT-X-DISCONTINUITY-SEQUENCE`  
   - `#EXT-X-BYTERANGE`
+  - `#EXT-X-MAP`
   - `#EXT-X-KEY` (https://tools.ietf.org/html/draft-pantos-http-live-streaming-08#section-3.4.4)
   - `#EXT-X-PROGRAM-DATE-TIME` (https://tools.ietf.org/html/draft-pantos-http-live-streaming-18#section-4.3.2.6)
   - `EXT-X-START:TIME-OFFSET=x` (https://tools.ietf.org/html/draft-pantos-http-live-streaming-18#section-4.3.5.2)
@@ -180,7 +182,7 @@ All HLS resources must be delivered with [CORS headers](https://developer.mozill
 
 ## API and Configuration Parameters
 
-hls.js can be configured and controlled easily, click [here](API.md) for details.
+hls.js can be configured and controlled easily, click [here](doc/API.md) for details.
 
 
 ## License
@@ -208,7 +210,11 @@ npm run lint
 
 ## Design
 
-Click [here](design.md) for details.
+Click [here](doc/design.md) for details.
+
+### Tested With
+
+[<img src="https://cloud.githubusercontent.com/assets/7864462/12837037/452a17c6-cb73-11e5-9f39-fc96893bc9bf.png" alt="Browser Stack Logo" width="300">](https://www.browserstack.com/)
 
 [npm-image]: https://img.shields.io/npm/v/hls.js.svg?style=flat
 [npm-url]: https://npmjs.org/package/hls.js
