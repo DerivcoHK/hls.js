@@ -97,5 +97,7 @@ export var hlsDefaultConfig = {
       abrMaxWithRealBitrate : false,
       maxStarvationDelay : 4,
       maxLoadingDelay : 4,
-      minAutoBitrate: 0
+      minAutoBitrate: 0,
+      reuseWorker: true,
+      destroyedMediaSource: ''
     };

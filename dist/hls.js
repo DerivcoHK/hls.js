@@ -634,7 +634,9 @@ var hlsDefaultConfig = exports.hlsDefaultConfig = {
       abrMaxWithRealBitrate: false,
       maxStarvationDelay: 4,
       maxLoadingDelay: 4,
-      minAutoBitrate: 0
+      minAutoBitrate: 0,
+      reuseWorker: true,
+      destroyedMediaSource: ''
 };
 
 },{"11":11,"14":14,"15":15,"16":16,"47":47,"5":5,"54":54,"6":6,"7":7,"8":8,"9":9}],5:[function(_dereq_,module,exports){
@@ -2269,6 +2271,7 @@ var BufferController = function (_EventHandler) {
     key: 'onMediaDetaching',
     value: function onMediaDetaching() {
       _logger.logger.log('media source detaching');
+      var hls = this.hls;
       var ms = this.mediaSource;
       if (ms) {
         if (ms.readyState === 'open') {
@@ -2290,7 +2293,11 @@ var BufferController = function (_EventHandler) {
         // suggested in https://github.com/w3c/media-source/issues/53.
         if (this.media) {
           URL.revokeObjectURL(this.media.src);
-          this.media.removeAttribute('src');
+          if (hls.config.destroyedMediaSource) {
+            this.media.src = hls.config.destroyedMediaSource;
+          } else {
+            this.media.removeAttribute('src');
+          }
           this.media.load();
         }
 
@@ -7022,7 +7029,7 @@ var Demuxer = function () {
     key: 'destroy',
     value: function destroy() {
       var w = this.w;
-      if (w) {
+      if (!hls.config.reuseWorker && w) {
         w.removeEventListener('message', this.onwmsg);
         w.terminate();
         this.w = null;
@@ -9871,7 +9878,7 @@ var Hls = function () {
     }
 
     /** Return first level (index of first level referenced in manifest)
-    **/
+     **/
 
   }, {
     key: 'firstLevel',
@@ -9880,7 +9887,7 @@ var Hls = function () {
     }
 
     /** set first level (index of first level referenced in manifest)
-    **/
+     **/
     ,
     set: function set(newLevel) {
       _logger.logger.log('set firstLevel:' + newLevel);
@@ -9888,9 +9895,9 @@ var Hls = function () {
     }
 
     /** Return start level (level of first fragment that will be played back)
-        if not overrided by user, first level appearing in manifest will be used as start level
-        if -1 : automatic start level selection, playback will start from level matching download bandwidth (determined from download of first segment)
-    **/
+     if not overrided by user, first level appearing in manifest will be used as start level
+     if -1 : automatic start level selection, playback will start from level matching download bandwidth (determined from download of first segment)
+     **/
 
   }, {
     key: 'startLevel',
@@ -9899,9 +9906,9 @@ var Hls = function () {
     }
 
     /** set  start level (level of first fragment that will be played back)
-        if not overrided by user, first level appearing in manifest will be used as start level
-        if -1 : automatic start level selection, playback will start from level matching download bandwidth (determined from download of first segment)
-    **/
+     if not overrided by user, first level appearing in manifest will be used as start level
+     if -1 : automatic start level selection, playback will start from level matching download bandwidth (determined from download of first segment)
+     **/
     ,
     set: function set(newLevel) {
       _logger.logger.log('set startLevel:' + newLevel);
