@@ -5116,6 +5116,7 @@ var Demuxer = function () {
     key: 'destroy',
     value: function destroy() {
       var w = this.w;
+      var hls = hls;
       if (!hls.config.reuseWorker && w) {
         w.removeEventListener('message', this.onwmsg);
         w.terminate();
