@@ -26,7 +26,7 @@ class DemuxerInline {
     }
   }
 
-  push(data, decryptdata, initSegment, audioCodec, videoCodec, timeOffset, discontinuity, trackSwitch, contiguous, duration,accurateTimeOffset,defaultInitPTS) {
+  push(data, decryptdata, initSegment, audioCodec, videoCodec, timeOffset, discontinuity, trackSwitch, contiguous, duration, accurateTimeOffset, defaultInitPTS) {
     if ((data.byteLength > 0) && (decryptdata != null) && (decryptdata.key != null) && (decryptdata.method === 'AES-128')) {
       let decrypter = this.decrypter;
       if (decrypter == null) {
@@ -48,14 +48,14 @@ class DemuxerInline {
           endTime = Date.now();
         }
         localthis.observer.trigger(Event.FRAG_DECRYPTED, { stats: { tstart: startTime, tdecrypt: endTime } });
-        localthis.pushDecrypted(new Uint8Array(decryptedData), new Uint8Array(initSegment), audioCodec, videoCodec, timeOffset, discontinuity, trackSwitch, contiguous, duration, accurateTimeOffset,defaultInitPTS);
+        localthis.pushDecrypted(new Uint8Array(decryptedData), decryptdata, new Uint8Array(initSegment), audioCodec, videoCodec, timeOffset, discontinuity, trackSwitch, contiguous, duration, accurateTimeOffset,defaultInitPTS);
       });
     } else {
-      this.pushDecrypted(new Uint8Array(data), new Uint8Array(initSegment), audioCodec, videoCodec, timeOffset, discontinuity, trackSwitch, contiguous, duration,accurateTimeOffset,defaultInitPTS);
+      this.pushDecrypted(new Uint8Array(data), decryptdata, new Uint8Array(initSegment), audioCodec, videoCodec, timeOffset, discontinuity, trackSwitch, contiguous, duration,accurateTimeOffset,defaultInitPTS);
     }
   }
 
-  pushDecrypted(data, initSegment, audioCodec, videoCodec, timeOffset, discontinuity, trackSwitch, contiguous, duration,accurateTimeOffset,defaultInitPTS) {
+  pushDecrypted(data, decryptdata, initSegment, audioCodec, videoCodec, timeOffset, discontinuity, trackSwitch, contiguous, duration,accurateTimeOffset,defaultInitPTS) {
     var demuxer = this.demuxer;
     if (!demuxer || 
        // in case of continuity change, we might switch from content type (AAC container to TS container for example)
@@ -94,6 +94,9 @@ class DemuxerInline {
     if (discontinuity) {
       demuxer.resetTimeStamp();
       remuxer.resetTimeStamp(defaultInitPTS);
+    }
+    if (typeof demuxer.setDecryptData === 'function') {
+      demuxer.setDecryptData(decryptdata);
     }
     demuxer.append(data,timeOffset,contiguous,accurateTimeOffset);
   }

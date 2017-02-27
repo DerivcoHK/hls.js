@@ -12,6 +12,7 @@
  import ADTS from './adts';
  import Event from '../events';
  import ExpGolomb from './exp-golomb';
+ import SampleAesDecrypter from './sample-aes';
 // import Hex from '../utils/hex';
  import {logger} from '../utils/logger';
  import {ErrorTypes, ErrorDetails} from '../errors';
@@ -23,6 +24,15 @@
     this.config = config;
     this.typeSupported = typeSupported;
     this.remuxer = remuxer;
+    this.sampleAes = null;
+  }
+
+  setDecryptData(decryptdata) {
+    if ((decryptdata != null) && (decryptdata.key != null) && (decryptdata.method === 'SAMPLE-AES')) {
+      this.sampleAes = new SampleAesDecrypter(this.observer, this.config, decryptdata, this.discardEPB);
+    } else {
+      this.sampleAes = null;
+    }
   }
 
   static probe(data) {
@@ -147,7 +157,7 @@
             if (stt) {
               offset += data[offset] + 1;
             }
-            let parsedPIDs = parsePMT(data, offset, this.typeSupported.mpeg === true || this.typeSupported.mp3 === true);
+            let parsedPIDs = parsePMT(data, offset, this.typeSupported.mpeg === true || this.typeSupported.mp3 === true, this.sampleAes != null);
 
             // only update track id if track PID found while parsing PMT
             // this is to avoid resetting the PID to -1 in case
@@ -216,7 +226,34 @@
       // either id3Data null or PES truncated, keep it for next frag parsing
       id3Track.pesData = id3Data;
     }
-    this.remuxer.remux(audioTrack, avcTrack, id3Track, this._txtTrack, timeOffset, contiguous, accurateTimeOffset);
+
+    if (this.sampleAes == null) {
+      this.remuxer.remux(audioTrack, avcTrack, id3Track, this._txtTrack, timeOffset, contiguous, accurateTimeOffset);
+    } else {
+      this.decryptAndRemux(audioTrack, avcTrack, id3Track, this._txtTrack, timeOffset, contiguous, accurateTimeOffset);
+    }
+  }
+
+  decryptAndRemux(audioTrack, videoTrack, id3Track, textTrack, timeOffset, contiguous, accurateTimeOffset) {
+    if (audioTrack.samples && audioTrack.isAAC) {
+      let localthis = this;
+      this.sampleAes.decryptAacSamples(audioTrack.samples, 0, function() {
+        localthis.decryptAndRemuxAvc(audioTrack, videoTrack, id3Track, textTrack, timeOffset, contiguous, accurateTimeOffset);
+      });
+    } else {
+      this.decryptAndRemuxAvc(audioTrack, videoTrack, id3Track, textTrack, timeOffset, contiguous, accurateTimeOffset);
+    }
+  }
+
+  decryptAndRemuxAvc(audioTrack, videoTrack, id3Track, textTrack, timeOffset, contiguous, accurateTimeOffset) {
+    if (videoTrack.samples) {
+      let localthis = this;
+      this.sampleAes.decryptAvcSamples(videoTrack.samples, 0, 0, function () {
+        localthis.remuxer.remux(audioTrack, videoTrack, id3Track, textTrack, timeOffset, contiguous, accurateTimeOffset);
+      });
+    } else {
+      this.remuxer.remux(audioTrack, videoTrack, id3Track, textTrack, timeOffset, contiguous, accurateTimeOffset);
+    }
   }
 
   destroy() {
@@ -230,7 +267,7 @@
     //logger.log('PMT PID:'  + this._pmtId);
   }
 
-  _parsePMT(data, offset, mpegSupported) {
+  _parsePMT(data, offset, mpegSupported, isSampleAes) {
     var sectionLength, tableEnd, programInfoLength, pid, result = { audio : -1, avc : -1, id3 : -1, isAAC : true};
     sectionLength = (data[offset + 1] & 0x0f) << 8 | data[offset + 2];
     tableEnd = offset + 3 + sectionLength - 4;
@@ -242,6 +279,13 @@
     while (offset < tableEnd) {
       pid = (data[offset + 1] & 0x1F) << 8 | data[offset + 2];
       switch(data[offset]) {
+        case 0xcf:     // SAMPLE-AES AAC
+          if (!isSampleAes) {
+            logger.log('unkown stream type:'  + data[offset]);
+            break;
+          }
+          /* falls through */
+
         // ISO/IEC 13818-7 ADTS AAC (MPEG-2 lower bit-rate audio)
         case 0x0f:
           //logger.log('AAC PID:'  + pid);
@@ -249,6 +293,7 @@
             result.audio = pid;
           }
           break;
+
         // Packetized metadata (ID3)
         case 0x15:
           //logger.log('ID3 PID:'  + pid);
@@ -256,6 +301,14 @@
             result.id3 = pid;
           }
           break;
+
+        case 0xdb:     // SAMPLE-AES AVC
+          if (!isSampleAes) {
+            logger.log('unkown stream type:'  + data[offset]);
+            break;
+          }
+          /* falls through */
+
         // ITU-T Rec. H.264 and ISO/IEC 14496-10 (lower bit-rate video)
         case 0x1b:
           //logger.log('AVC PID:'  + pid);
@@ -263,6 +316,7 @@
             result.avc = pid;
           }
           break;
+
         // ISO/IEC 11172-3 (MPEG-1 audio)
         // or ISO/IEC 13818-3 (MPEG-2 halved sample rate audio)
         case 0x03:
@@ -275,9 +329,11 @@
             result.isAAC = false;
           }
           break;
+
         case 0x24:
           logger.warn('HEVC stream type found, not supported for now');
           break;
+
         default:
           logger.log('unkown stream type:'  + data[offset]);
           break;
